@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <getopt.h>
 
 // Definindo um tipo para representar a imagem binária como uma matriz de inteiros
 typedef struct {
@@ -175,11 +176,11 @@ void help() {
 
     //Função para apresentar o menu help
     printf("Uso: ImageEncoder [-? | -m | -f ARQ]\n");
-        printf("Codifica imagens binárias dadas em arquivos PBM ou por dados informados manualmente.\n");
-        printf("Argumentos:\n");
-        printf("-? , --help : apresenta essa orientação na tela.\n");
-        printf("-m , --manual: ativa o modo de entrada manual, onde o usuário fornece todos os dados da imagem.\n");
-        printf("-f , --file: considera o arquivo PBM para leitura.\n");
+    printf("Codifica imagens binárias dadas em arquivos PBM ou por dados informados manualmente.\n");
+    printf("Argumentos:\n");
+    printf("-? , --help : apresenta essa orientação na tela.\n");
+    printf("-m , --manual: ativa o modo de entrada manual, onde o usuário fornece todos os dados da imagem.\n");
+    printf("-f , --file: considera o arquivo PBM para leitura.\n");
 
     return;
 }
@@ -188,23 +189,37 @@ void help() {
 int main(int argc, char* argv[]) {
     Imagem* img = NULL;
 
-    // Verificando os argumentos passados pela linha de comando
+    // Verificando se há passados pela linha de comando
     if (argc == 1) {
         // Se nenhum argumento for passado, exibir ajuda
         help();
         return 0;
     }
 
-    if (argc == 2) {
-        if (strcmp(argv[1], "-?") == 0 || strcmp(argv[1], "--help") == 0) {
-            help();
-            return 0;
-        } else if (strcmp(argv[1], "-m") == 0 || strcmp(argv[1], "--manual") == 0) {
-            // Modo manual: Lê a imagem do usuário
-            img = lerImagemManual();
-        } else if (strcmp(argv[1], "-f") == 0 && argc == 3) {
-            // Modo arquivo: Lê a imagem do arquivo
-            img = lerImagemDoArquivo(argv[2]);
+    //Estrutura para opções de argumento
+    const struct option opcoes[] = {
+        {"help", no_argument, 0, '?'},
+        {"manual", no_argument, 0, 'm'},
+        {"file", required_argument, 0, 'f'},
+        {0, 0, 0, 0} //Último item no vetor de opções precisa ser NULL
+    };
+
+    int opt;
+    //Processar argumentos da CLI
+    while ( (opt = getopt_long(argc, argv, "?mf:", opcoes, NULL)) > 0) {
+        switch (opt) {
+            case '?':
+                help();
+                return 0;
+            case 'm':
+                img = lerImagemManual();
+                break;
+            case 'f':
+                img = lerImagemDoArquivo(optarg);
+                break;
+            default:
+                help();
+                return 1;
         }
     }
 
@@ -216,6 +231,8 @@ int main(int argc, char* argv[]) {
         liberarImagem(img);
     } else {
         printf("Erro ao carregar a imagem.\n");
+        liberarImagem(img);
+        return 1;
     }
 
     return 0;
