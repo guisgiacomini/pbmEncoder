@@ -1,106 +1,88 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
 
-// Definindo um tipo para representar a imagem binária como uma matriz de inteiros
+#define MAX_LINHAS 768
+#define MAX_COLUNAS 1024
+//Definindo estrutura imagem
 typedef struct {
-    int largura;  // Largura da imagem
-    int altura;   // Altura da imagem
-    int** pixels; // Matriz de pixels (0 para branco, 1 para preto)
+    int n_linhas;
+    int n_colunas;
+    int matriz[MAX_LINHAS][MAX_COLUNAS];
 } Imagem;
 
-// Função para criar a estrutura de imagem
-Imagem* criarImagem(int largura, int altura) {
-    Imagem* img = (Imagem*)malloc(sizeof(Imagem));
-    img->largura = largura;
-    img->altura = altura;
-
-    // Alocando memória para a matriz de pixels
-    img->pixels = (int**)malloc(sizeof(int*) * altura);
-    for (int i = 0; i < altura; i++) {
-        img->pixels[i] = (int*)malloc(sizeof(int) * largura);
-    }
-
-    return img;
-}
-
-// Função para liberar a memória alocada para a imagem
-void liberarImagem(Imagem* img) {
-    for (int i = 0; i < img->altura; i++) {
-        free(img->pixels[i]);
-    }
-    free(img->pixels);
-    free(img);
-}
-
 // Função para ler a imagem do arquivo PBM
-Imagem* lerImagemDoArquivo(const char* nomeArquivo) {
+void lerImagemDoArquivo(const char* nomeArquivo, Imagem *img) {
     FILE* arquivo = fopen(nomeArquivo, "r");
     if (!arquivo) {
         printf("Erro ao abrir o arquivo.\n");
-        return NULL;
+        return;
     }
 
     char tipo[3];
-    int largura, altura;
+    int colunas, linhas;
 
     // Lendo o tipo do arquivo (P1)
     fscanf(arquivo, "%s", tipo);
     if (strcmp(tipo, "P1") != 0) {
         printf("Formato de arquivo inválido. Apenas arquivos P1 são suportados.\n");
         fclose(arquivo);
-        return NULL;
+        return;
     }
 
-    // Ignorando comentários (#)
-    char ch;
-    do {
-        ch = fgetc(arquivo);
-    } while (ch == '#');
-    ungetc(ch, arquivo);
-
     // Lendo as dimensões da imagem
-    fscanf(arquivo, "%d %d", &largura, &altura);
+    fscanf(arquivo, "%d %d", &colunas, &linhas);
 
+    //Sair caso ultrapasse número máximo de linhas e colunas
+    if (linhas > MAX_LINHAS || colunas > MAX_COLUNAS)
+    {
+        printf("Tamanho max: 1024x768");
+        return;
+    }
     // Criando a imagem
-    Imagem* img = criarImagem(largura, altura);
+    img->n_linhas = linhas;
+    img->n_colunas = colunas;
 
-    // Lendo os pixels
-    for (int i = 0; i < altura; i++) {
-        for (int j = 0; j < largura; j++) {
-            fscanf(arquivo, "%d", &img->pixels[i][j]);
+    // Lendo os matriz
+    for (int i = 0; i < linhas; i++) {
+        for (int j = 0; j < colunas; j++) {
+            fscanf(arquivo, "%d", &img->matriz[i][j]);
         }
     }
 
     fclose(arquivo);
-    return img;
+    return;
 }
 
 // Função para ler os dados da imagem manualmente
-Imagem* lerImagemManual() {
-    int largura, altura;
-    printf("Digite a largura e altura da imagem: ");
-    scanf("%d %d", &largura, &altura);
+void lerImagemManual(Imagem *img) {
+    int colunas, linhas;
+    printf("Digite a colunas e linhas da imagem: ");
+    scanf("%d %d", &colunas, &linhas);
 
-    Imagem* img = criarImagem(largura, altura);
+    //Sair caso ultrapasse número máximo de linhas e colunas
+    if (linhas > MAX_LINHAS || colunas > MAX_COLUNAS)
+    {
+        printf("Tamanho max: 1024x768");
+        return;
+    }
 
-    printf("Digite os pixels da imagem (0 para branco e 1 para preto):\n");
-    for (int i = 0; i < altura; i++) {
-        for (int j = 0; j < largura; j++) {
-            scanf("%d", &img->pixels[i][j]);
+    printf("Digite os matriz da imagem (0 para branco e 1 para preto):\n");
+    for (int i = 0; i < linhas; i++) {
+        for (int j = 0; j < colunas; j++) {
+            scanf("%d", &img->matriz[i][j]);
         }
     }
 
-    return img;
+    return;
 }
 
 // Função para verificar se a imagem é uniforme (toda preta ou toda branca)
 int imagemUniforme(Imagem* img) {
-    int primeiroPixel = img->pixels[0][0];
-    for (int i = 0; i < img->altura; i++) {
-        for (int j = 0; j < img->largura; j++) {
-            if (img->pixels[i][j] != primeiroPixel) {
+    int primeiroPixel = img->matriz[0][0];
+    for (int i = 0; i < img->n_linhas; i++) {
+        for (int j = 0; j < img->n_colunas; j++) {
+            if (img->matriz[i][j] != primeiroPixel) {
                 return 0; // Imagem não é uniforme
             }
         }
@@ -109,67 +91,80 @@ int imagemUniforme(Imagem* img) {
 }
 
 // Função recursiva para codificar a imagem
-char* codificarImagem(Imagem* img) {
+void codificarImagem(Imagem* img) {
     // Se a imagem for uniforme, retornar 'P' (preta) ou 'B' (branca)
     if (imagemUniforme(img)) {
-        return img->pixels[0][0] == 1 ? "P" : "B";
+        if (img->matriz[0][0] == 1)
+        {
+            printf("P");
+            return;
+        }
+        else
+        {
+            printf("B");
+            return;
+        }
     }
 
     // Caso a imagem não seja uniforme, realizar os cortes e dividir a imagem em 4 quadrantes
-    char* codigo = (char*)malloc(10000 * sizeof(char)); // Reservando memória para o código resultante
+
 
     // Iniciar o código com 'X' (pois não é uniforme)
-    strcat(codigo, "X");
+    printf("X");
 
-    // Realizar o corte horizontal e vertical e processar cada quadrante
-    int meioVertical = img->largura / 2;
-    int meioHorizontal = img->altura / 2;
-
+    // Realizar o corte Linhas e Colunas e processar cada quadrante
+    int meioColunas = img->n_colunas / 2;
+    int meioLinhas = img->n_linhas / 2;
+    
     // Quadrante 1: Superior Esquerdo
-    Imagem* q1 = criarImagem(meioVertical + (img->largura % 2), meioHorizontal + (img->altura % 2));
-    for (int i = 0; i < meioHorizontal + (img->altura % 2); i++) {
-        for (int j = 0; j < meioVertical + (img->largura % 2); j++) {
-            q1->pixels[i][j] = img->pixels[i][j];
+    Imagem q1; 
+    q1.n_colunas = meioColunas + (img->n_colunas % 2);
+    q1.n_linhas = meioLinhas + (img->n_linhas % 2);
+
+    for (int i = 0; i < meioLinhas; i++) {
+        for (int j = 0; j < meioColunas; j++) {
+            q1.matriz[i][j] = img->matriz[i][j];
         }
     }
-    char* codQ1 = codificarImagem(q1);
-    strcat(codigo, codQ1);
-    liberarImagem(q1);
+    codificarImagem(&q1);
 
     // Quadrante 2: Superior Direito
-    Imagem* q2 = criarImagem(img->largura - meioVertical, meioHorizontal + (img->altura % 2));
-    for (int i = 0; i < meioHorizontal + (img->altura % 2); i++) {
-        for (int j = 0; j < img->largura - meioVertical; j++) {
-            q2->pixels[i][j] = img->pixels[i][meioVertical + j];
+    Imagem q2;
+    q2.n_colunas = meioColunas;
+    q2.n_linhas = meioLinhas + (img->n_linhas % 2);
+
+    for (int i = meioLinhas / 2; i < img->n_linhas; i++) {
+        for (int j = 0; j < meioColunas; j++) {
+            q2.matriz[i][j] = img->matriz[i][meioColunas + j];
         }
     }
-    char* codQ2 = codificarImagem(q2);
-    strcat(codigo, codQ2);
-    liberarImagem(q2);
+    codificarImagem(&q2);
 
     // Quadrante 3: Inferior Esquerdo
-    Imagem* q3 = criarImagem(meioVertical + (img->largura % 2), img->altura - meioHorizontal);
-    for (int i = 0; i < img->altura - meioHorizontal; i++) {
-        for (int j = 0; j < meioVertical + (img->largura % 2); j++) {
-            q3->pixels[i][j] = img->pixels[meioHorizontal + i][j];
+    Imagem q3;
+    q3.n_colunas = meioColunas + (img->n_colunas % 2);
+    q3.n_linhas = meioLinhas;
+
+    for (int i = meioLinhas; i < img->n_linhas; i++) {
+        for (int j = 0; j < meioColunas ; j++) {
+            q3.matriz[i][j] = img->matriz[meioLinhas + i][j];
         }
     }
-    char* codQ3 = codificarImagem(q3);
-    strcat(codigo, codQ3);
-    liberarImagem(q3);
+    codificarImagem(&q3);
 
     // Quadrante 4: Inferior Direito
-    Imagem* q4 = criarImagem(img->largura - meioVertical, img->altura - meioHorizontal);
-    for (int i = 0; i < img->altura - meioHorizontal; i++) {
-        for (int j = 0; j < img->largura - meioVertical; j++) {
-            q4->pixels[i][j] = img->pixels[meioHorizontal + i][meioVertical + j];
+    Imagem q4;
+    q4.n_colunas = meioColunas;
+    q4.n_linhas = meioLinhas;
+
+    for (int i = meioLinhas; i < img->n_linhas; i++) {
+        for (int j = meioColunas; j < img->n_colunas; j++) {
+            q4.matriz[i][j] = img->matriz[meioLinhas + i][meioColunas + j];
         }
     }
-    char* codQ4 = codificarImagem(q4);
-    strcat(codigo, codQ4);
-    liberarImagem(q4);
-
-    return codigo;
+    codificarImagem(&q4);
+   
+   return;
 }
 
 void help() {
@@ -187,9 +182,10 @@ void help() {
 
 // Função principal
 int main(int argc, char* argv[]) {
-    Imagem* img = NULL;
 
-    // Verificando se há passados pela linha de comando
+    Imagem img;
+
+    // Verificando se há argumentos passados pela linha de comando
     if (argc == 1) {
         // Se nenhum argumento for passado, exibir ajuda
         help();
@@ -212,10 +208,10 @@ int main(int argc, char* argv[]) {
                 help();
                 return 0;
             case 'm':
-                img = lerImagemManual();
+                lerImagemManual(&img);
                 break;
             case 'f':
-                img = lerImagemDoArquivo(optarg);
+                lerImagemDoArquivo(optarg, &img);
                 break;
             default:
                 help();
@@ -224,16 +220,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Codificando a imagem e mostrando o código
-    if (img) {
-        char* codigo = codificarImagem(img);
-        printf("Código da imagem: %s\n", codigo);
-        free(codigo);
-        liberarImagem(img);
-    } else {
-        printf("Erro ao carregar a imagem.\n");
-        liberarImagem(img);
-        return 1;
-    }
-
+    codificarImagem(&img);
+    printf("\n");
     return 0;
 }
